@@ -1,6 +1,8 @@
 import TodoListItemViewController from "./TodoListItemViewController.js";
-import TodoListModel from "./TodoListModel.js";
 import ViewController from '../../lib/ViewController.js'
+import todoStore from "../atom/store.js";
+import { loadable, splitAtom } from "jotai/utils.js";
+import { todoAtomList, todoItem, todoList, todoListFetchAtom } from "../atom/todoAtom.js";
 
 export default class TodoListViewController extends ViewController {
     constructor() {
@@ -8,8 +10,9 @@ export default class TodoListViewController extends ViewController {
         super.init(
             {
                 template: `
-                    <button class="create" style="border-radius:10px;border:0px;padding:10px">추가하기</button>
-                    <div class="items"></div>
+                    <button class="create" style="border-radius:10px;border:0px;padding:10px;margin-bottom:10px;">추가하기</button>
+                    <div class="items" style="display:flex;flex-direction:column;gap:10px"></div>
+                    <div class="isLoading">...isLoading</div>
                 `,
                 events: [
                     {
@@ -19,46 +22,34 @@ export default class TodoListViewController extends ViewController {
                             this.triggerEvent('listView:editor:open');
                         }
                     },
-                    {
-                        selector: '.items',
-                        eventKey: 'click',
-                        listener: (e) => {
-                            const container = e.target.closest('.container')
-                            const id = container.getAttribute('data-id');
-                            const itemModel = this._model.findById(id);
-                            this.triggerEvent('listView:click',{model : itemModel});
-                        }
-                    }
                 ],
             }
         )
-        this._model = new TodoListModel();
+        this.itemList = [];
+        this.addJotaiSubListener(todoStore, loadable(todoListFetchAtom), () => {
+            const lodable = todoStore.get(loadable(todoListFetchAtom))
+            if (lodable.state === 'loading') {
+                console.log()
+                this.getElement().querySelector('.isLoading').style = "display:block;"
+                return;
+            }
+            this.itemList.forEach((itemView) => {
+                // itemView.deleteItem();
+            })
+            
+            this.getElement().innerHTML = this.getTemplate();
+            this.getElement().querySelector('.isLoading').style = "display:none;"
+            this.render();
+            todoStore.set(todoList, lodable.data);
+            lodable.data.forEach((value) => {
+                todoStore.set(todoItem({key: value.id}), value)
+                const itemView = new TodoListItemViewController(value.id)
+                this.getElement().querySelector('.items').appendChild(itemView.render())
+                this.itemList.push(itemView)
+            })
+            
+        })
     }
     onRender() {
-        this.getElement().querySelector('.items').innerHTML = '';
-        this._model.list.forEach((itemModel) => {
-            const itemView = new TodoListItemViewController(itemModel);
-            this.getElement().querySelector('.items').appendChild(itemView.render())
-            itemView.addListener('item:deleted', ({itemModel}) => {
-                this.triggerEvent('item:deleted', {itemModel});
-                this._model.deleteData(itemModel.id);
-                itemView.destroy();
-            })
-        })
-    }
-    async updateData() {
-        await this._model.fetchTodoList();
-        this.render();
-    }
-    async addData(title, desc) {
-        const itemModel = await this._model.addData(title, desc)
-        const itemView = new TodoListItemViewController(itemModel);
-        this.getElement().querySelector('.items').appendChild(itemView.render())
-        itemView.addListener('item:deleted', ({itemModel}) => {
-            this.triggerEvent('item:deleted', {itemModel});
-            this._model.deleteData(itemModel.id);
-            itemView.destroy();
-        })
-        return itemModel;
     }
 }

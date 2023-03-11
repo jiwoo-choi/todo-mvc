@@ -14,25 +14,34 @@ let TODO_DB = [
 ];
 let auto_increment_key = 3;
 
+function getResponseWithDelay(data) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve(data)
+        }, 1000);
+    })
+}
 function generateKey() {
     return (auto_increment_key++).toString();
 }
 
 export function getTodoList() {
-    return Promise.resolve(TODO_DB)
+    console.log('API: GET TODO LIST')
+    return getResponseWithDelay(TODO_DB);
 }
 
-export function createTodoItem(newTodo) {
+export function createTodoItem(title, desc) {
     const newData = {
         id: generateKey(),
-        ...newTodo
+        title,
+        desc
     };
     TODO_DB.push(newData)
-    return Promise.resolve(newData)
+    return Promise.resolve(newData);
 }
 
 export function deleteTodoItem(todoKey) {
-    TODO_DB = TODO_DB.filter((value) => value.key !== todoKey);
+    TODO_DB = TODO_DB.filter((value) => value.id !== todoKey);
     return Promise.resolve({ok: true})
 }
 
